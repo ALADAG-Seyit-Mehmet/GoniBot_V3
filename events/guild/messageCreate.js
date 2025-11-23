@@ -1,6 +1,6 @@
 const db = require('croxydb');
 const { Hercai } = require('hercai');
-const hercai = new Hercai();
+const hercai = new Hercai({}); // DÜZELTME BURADA
 
 module.exports = {
     name: 'messageCreate',
@@ -28,11 +28,15 @@ module.exports = {
             });
         }
 
-        // Level & AI
+        // Level
         db.add(`xp_${message.author.id}`, 5);
+
+        // AI Sohbet
         if (message.content.includes(client.user.id)) {
-            const res = await hercai.question({model:"v3", content: message.content});
-            message.reply(res.reply);
+            try {
+                const res = await hercai.question({model:"v3", content: message.content});
+                message.reply(res.reply);
+            } catch(e) { console.log("AI Hatası:", e); }
         }
 
         // Virüs
