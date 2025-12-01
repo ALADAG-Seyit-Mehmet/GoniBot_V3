@@ -1,41 +1,58 @@
 const db = require('croxydb');
 const { Hercai } = require('hercai');
 const hercai = new Hercai({});
+const { AttachmentBuilder } = require('discord.js');
+const { Rank } = require('canvacord'); // Resim kütüphanesi
 
 module.exports = {
     name: 'messageCreate',
     async execute(message, client) {
         if (message.author.bot || !message.guild) return;
 
-        // --- 1. KORUMA SİSTEMLERİ ---
-        
-        // Küfür Engel
+        // --- KORUMA SİSTEMLERİ ---
         if (db.fetch(`kufurEngel_${message.guild.id}`)) {
-            const kufurler = ["mk", "aq", "oc", "kaşar", "oç", "piç", "sikerim", "amk", "sik", "yarrak", "aptal"]; 
-            if (kufurler.some(k => message.content.toLowerCase().split(" ").includes(k))) {
+            if (["kufur", "aptal", "mal", "gerizekalı", "mk"].some(k => message.content.toLowerCase().includes(k))) {
                 try { await message.delete(); } catch(e){}
-                return message.channel.send(`${message.author} 🚨 **Küfür Yasak!**`).then(x => setTimeout(()=>x.delete(), 3000));
+                return message.channel.send(`${message.author} 🚨 **Terbiyeni takın!**`).then(x => setTimeout(()=>x.delete(), 3000));
             }
         }
 
-        // Reklam Engel
-        if (db.fetch(`reklamEngel_${message.guild.id}`)) {
-            const reklamlar = ["discord.gg", "invite", "katıl", "davet"];
-            if (reklamlar.some(r => message.content.toLowerCase().includes(r))) {
-                try { await message.delete(); } catch(e){}
-                return message.channel.send(`${message.author} 🚨 **Reklam Yasak!**`).then(x => setTimeout(()=>x.delete(), 3000));
-            }
+        // --- LEVEL SİSTEMİ (ARTIK RESİMLİ) ---
+        const xpKey = `xp_${message.author.id}`;
+        const lvlKey = `lvl_${message.author.id}`;
+        
+        // Rastgele 1-5 XP ver
+        const randomXp = Math.floor(Math.random() * 5) + 1;
+        db.add(xpKey, randomXp);
+
+        let currentXp = db.fetch(xpKey) || 0;
+        let currentLvl = db.fetch(lvlKey) || 0;
+        let nextLvlXp = (currentLvl + 1) * 200; // Her levelde zorlaşır (Örn: Lvl 1 için 200, Lvl 2 için 400)
+
+        if (currentXp >= nextLvlXp) {
+            db.set(lvlKey, currentLvl + 1);
+            // XP'yi sıfırlama, birikerek gitsin (RPG mantığı)
+            
+            // KART OLUŞTURMA
+            const rank = new Rank()
+                .setAvatar(message.author.displayAvatarURL({ extension: 'png', forceStatic: true }))
+                .setCurrentXP(currentXp)
+                .setRequiredXP(nextLvlXp + 200) // Bir sonraki hedef
+                .setLevel(currentLvl + 1)
+                .setProgressBar("#00FFFF", "COLOR")
+                .setUsername(message.author.username)
+                .setDiscriminator(message.author.discriminator === '0' ? ' ' : message.author.discriminator)
+                .setStatus("online")
+                .setRank(0, "LVL", false) // Sıralamayı gizle (DB karmaşası olmasın diye)
+                .setBackground("IMAGE", "https://i.imgur.com/8nLFCVP.png"); // Havalı mavi arka plan
+
+            rank.build().then(buffer => {
+                const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
+                message.channel.send({ content: `🎉 **TEBRİKLER!** Seviye Atladın!`, files: [attachment] });
+            });
         }
 
-        // Link Engel
-        if (db.fetch(`linkEngel_${message.guild.id}`)) {
-            if (message.content.includes("http") || message.content.includes(".com")) {
-                try { await message.delete(); } catch(e){}
-                return message.channel.send(`${message.author} 🚨 **Link Paylaşımı Yasak!**`).then(x => setTimeout(()=>x.delete(), 3000));
-            }
-        }
-
-        // --- 2. GLOBAL CHAT ---
+        // --- GLOBAL CHAT ---
         const globalID = db.fetch(`globalKanal_${message.guild.id}`);
         if (message.channel.id === globalID) {
             client.guilds.cache.forEach(g => {
@@ -48,22 +65,13 @@ module.exports = {
             });
         }
 
-        // --- 3. DİĞERLERİ (Level, AI, Virus) ---
-        db.add(`xp_${message.author.id}`, 5);
-
+        // --- AI SOHBET ---
         if (message.content.includes(client.user.id)) {
             try {
+                message.channel.sendTyping();
                 const res = await hercai.question({model:"v3", content: message.content});
                 message.reply(res.reply);
             } catch(e) { console.log(e); }
-        }
-
-        if (db.fetch(`salgin_aktif`) && db.fetch(`enfekte_${message.author.id}`) && message.reference) {
-            const ref = await message.fetchReference();
-            if (Math.random() > 0.5 && !ref.author.bot) {
-                db.set(`enfekte_${ref.author.id}`, true);
-                message.channel.send(`🦠 **${ref.author.username}** virüsü kaptı!`);
-            }
         }
     }
 };
