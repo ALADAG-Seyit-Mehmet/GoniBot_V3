@@ -1,7 +1,7 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const db = require('croxydb');
 
-// Log Gönderme Fonksiyonu
+// Log Gönderme Fonksiyonu (Basit Mesajlar İçin)
 async function logGonder(guild, baslik, renk, aciklama) {
     const logID = db.fetch(`logKanal_${guild.id}`);
     if(!logID) return;
@@ -29,7 +29,7 @@ module.exports = {
         }
 
         // ====================================================
-        //              TICKET SİSTEMİ (V2 + LOGLU)
+        //              TICKET SİSTEMİ (TRANSCRIPT) 📜
         // ====================================================
         
         if (interaction.isStringSelectMenu() && interaction.customId === "ticket_secim") {
@@ -55,31 +55,59 @@ module.exports = {
             });
 
             const embed = new EmbedBuilder().setTitle(`🎫 ${konu}`).setDescription(`Hoş geldin ${interaction.user}! Yetkililer birazdan burada olacak.`).setColor(renk);
-            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("ticket_kapat").setLabel("Talebi Kapat").setStyle(ButtonStyle.Secondary).setEmoji("🔒"));
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("ticket_kapat").setLabel("Talebi Kapat ve Kaydet").setStyle(ButtonStyle.Secondary).setEmoji("🔒"));
             
             await channel.send({ content: `<@${interaction.user.id}> | @here`, embeds: [embed], components: [row] });
             await interaction.reply({ content: `✅ **${konu}** talebin oluşturuldu: ${channel}`, ephemeral: true });
             
-            // LOGLA
             logGonder(interaction.guild, "🎫 Ticket Açıldı", "Green", `**Açan:** ${interaction.user}\n**Kanal:** ${channel}\n**Konu:** ${konu}`);
         }
 
+        // --- TICKET KAPATMA VE KAYDETME ---
         if (interaction.isButton() && interaction.customId === "ticket_kapat") {
-            interaction.reply("🔒 Kanal arşivleniyor...");
+            await interaction.reply("💾 Sohbet geçmişi kaydediliyor ve kanal siliniyor...");
+
+            try {
+                // 1. Mesajları Çek (Son 100 mesaj)
+                const messages = await interaction.channel.messages.fetch({ limit: 100 });
+                
+                // 2. Formatla
+                const output = messages.reverse().map(m => {
+                    const time = new Date(m.createdTimestamp).toLocaleTimeString();
+                    return `[${time}] ${m.author.tag}: ${m.content} ${m.attachments.size > 0 ? '(Görsel/Dosya)' : ''}`;
+                }).join('\n');
+
+                // 3. Dosya Oluştur
+                const transcriptFile = new AttachmentBuilder(Buffer.from(output, "utf-8"), { name: `ticket-${interaction.channel.name}.txt` });
+
+                // 4. Log Kanalını Bul ve Gönder
+                const logID = db.fetch(`logKanal_${interaction.guild.id}`);
+                if (logID) {
+                    const logCh = interaction.guild.channels.cache.get(logID);
+                    if (logCh) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle('🔒 Ticket Kapatıldı')
+                            .setColor('Red')
+                            .setDescription(`**Kanal:** ${interaction.channel.name}\n**Kapatan:** ${interaction.user}\n**Mesaj Sayısı:** ${messages.size}`)
+                            .setTimestamp();
+
+                        await logCh.send({ embeds: [logEmbed], files: [transcriptFile] });
+                    }
+                }
+            } catch (err) {
+                console.log("Transcript hatası:", err);
+            }
             
-            // LOGLA
-            logGonder(interaction.guild, "🎫 Ticket Kapatıldı", "Red", `**Kapatan:** ${interaction.user}\n**Kanal:** ${interaction.channel.name}`);
-            
+            // 5. Kanalı Sil
             setTimeout(() => interaction.channel.delete().catch(()=>{}), 5000);
         }
 
         // ====================================================
-        //              PANEL SİSTEMİ (V2 + LOGLU)
+        //              PANEL SİSTEMİ (V2)
         // ====================================================
 
         if (interaction.isStringSelectMenu() && interaction.customId === "panel_ana_menu") {
             const secim = interaction.values[0];
-            // Menü geçişleri (Koruma, Sistem, Mod)
             if (secim === "menu_koruma") {
                 const k1 = db.fetch(`kufurEngel_${interaction.guild.id}`);
                 const k2 = db.fetch(`reklamEngel_${interaction.guild.id}`);
@@ -118,7 +146,6 @@ module.exports = {
                 const val = db.fetch(`${key}_${interaction.guild.id}`);
                 if(val) db.delete(`${key}_${interaction.guild.id}`); else db.set(`${key}_${interaction.guild.id}`, true);
                 
-                // LOGLA
                 logGonder(interaction.guild, "🛡️ Koruma Güncellendi", "Orange", `**İşlem:** ${key}\n**Yapan:** ${interaction.user}\n**Yeni Durum:** ${!val ? "AÇIK" : "KAPALI"}`);
 
                 const newRow = ActionRowBuilder.from(interaction.message.components[0]);
@@ -148,7 +175,7 @@ module.exports = {
                 logGonder(interaction.guild, "🔓 Kanal Açıldı", "Green", `**Yapan:** ${interaction.user}\n**Kanal:** ${interaction.channel}`);
             }
 
-            // Boss Vur (Loga Gerek Yok, çok spam olur)
+            // Boss Vur
             if (interaction.customId === "boss_vur") {
                 let hp = db.fetch(`boss_${interaction.message.id}`);
                 if(hp <= 0) return interaction.reply({content:"Öldü!", ephemeral: true});
