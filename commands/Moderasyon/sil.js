@@ -8,9 +8,16 @@ module.exports = {
         const yetkiliMi = i.member.permissions.has(PermissionsBitField.Flags.ManageMessages);
         const modMu = modRol ? i.member.roles.cache.has(modRol) : false;
 
-        if(!yetkiliMi && !modMu) return i.reply({content: "❌ Yetkin yok.", ephemeral: true});
+        // --- YETKİ KONTROLÜ ---
+        if (!yetkiliMi && !modMu) {
+            return i.reply({ 
+                content: `⛔ **Yetkin Yok!**\nBu komutu kullanmak için **Moderatör Rolüne** (<@&${modRol}>) veya Mesaj Yönet yetkisine sahip olmalısın.`, 
+                ephemeral: true 
+            });
+        }
 
-        await i.channel.bulkDelete(i.options.getInteger('sayi'), true);
-        i.reply({content: "🧹 Silindi.", ephemeral: true});
+        const sayi = i.options.getInteger('sayi');
+        await i.channel.bulkDelete(sayi, true);
+        i.reply({ content: `🧹 **${sayi}** mesaj silindi.`, ephemeral: true });
     }
 };

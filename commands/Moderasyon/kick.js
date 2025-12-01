@@ -8,9 +8,20 @@ module.exports = {
         const yetkiliMi = i.member.permissions.has(PermissionsBitField.Flags.KickMembers);
         const modMu = modRol ? i.member.roles.cache.has(modRol) : false;
 
-        if(!yetkiliMi && !modMu) return i.reply({content: "❌ Yetkin yok.", ephemeral: true});
+        // --- YETKİ KONTROLÜ ---
+        if (!yetkiliMi && !modMu) {
+            return i.reply({ 
+                content: `⛔ **Yetkin Yok!**\nBu komutu kullanmak için **Moderatör Rolüne** (<@&${modRol}>) veya Kick yetkisine sahip olmalısın.`, 
+                ephemeral: true 
+            });
+        }
 
         const user = i.options.getMember('user');
-        if(user && user.kickable) { await user.kick(); i.reply(`🦶 **${user.user.tag}** atıldı.`); } else i.reply("Atılamıyor.");
+        if(user && user.kickable) { 
+            await user.kick(); 
+            i.reply(`🦶 **${user.user.tag}** sunucudan atıldı.`); 
+        } else {
+            i.reply({ content: "❌ **Hata:** Bu kişiyi atamam. (Yetkisi benden yüksek)", ephemeral: true });
+        }
     }
 };

@@ -1,9 +1,18 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionsBitField } = require('discord.js');
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('panel').setDescription('Sunucu Yönetim Merkezi'),
+    data: new SlashCommandBuilder()
+        .setName('panel')
+        .setDescription('Sunucu Yönetim Merkezi'),
+
     async execute(interaction) {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+        // --- YETKİ KONTROLÜ ---
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ 
+                content: '⛔ **Erişim Reddedildi!**\nBu paneli açmak için sunucuda **YÖNETİCİ** yetkisine sahip olmalısın.', 
+                ephemeral: true 
+            });
+        }
 
         const embed = new EmbedBuilder()
             .setAuthor({ name: `${interaction.guild.name} Kontrol Merkezi`, iconURL: interaction.guild.iconURL() })

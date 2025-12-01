@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
 const db = require('croxydb');
 
 module.exports = {
@@ -8,12 +8,20 @@ module.exports = {
         const yetkiliMi = i.member.permissions.has(PermissionsBitField.Flags.BanMembers);
         const modMu = modRol ? i.member.roles.cache.has(modRol) : false;
 
-        if(!yetkiliMi && !modMu) return i.reply({content: "❌ Yetkin veya Mod rolün yok.", ephemeral: true});
+        // --- YETKİ KONTROLÜ ---
+        if (!yetkiliMi && !modMu) {
+            return i.reply({ 
+                content: `⛔ **Yetkin Yok!**\nBu komutu kullanmak için **Moderatör Rolüne** (<@&${modRol}>) veya Ban yetkisine sahip olmalısın.`, 
+                ephemeral: true 
+            });
+        }
 
         const user = i.options.getUser('user');
         try { 
             await i.guild.members.ban(user); 
-            i.reply(`🔨 **${user.tag}** yasaklandı.`); 
-        } catch(e){ i.reply("Yetkim yetmedi veya bu kişiyi banlayamam."); }
+            i.reply(`🔨 **${user.tag}** sunucudan yasaklandı.`); 
+        } catch(e){ 
+            i.reply({ content: "❌ **Hata:** Bu kişiyi banlayamam. (Yetkisi benden yüksek olabilir)", ephemeral: true }); 
+        }
     }
 };
