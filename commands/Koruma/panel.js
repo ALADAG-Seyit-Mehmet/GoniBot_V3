@@ -1,38 +1,31 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionsBitField } = require('discord.js');
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('panel')
-        .setDescription('GoniBot Ana Kontrol Merkezi (Dashboard)'),
-
+    data: new SlashCommandBuilder().setName('panel').setDescription('Sunucu Yönetim Merkezi'),
     async execute(interaction) {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: '❌ Bu paneli sadece Yöneticiler kullanabilir.', ephemeral: true });
-        }
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
         const embed = new EmbedBuilder()
-            .setTitle('🎛️ GoniBot Kontrol Merkezi')
-            .setDescription('Sunucu ayarlarını yönetmek için aşağıdaki menüden bir kategori seçin.')
+            .setAuthor({ name: `${interaction.guild.name} Kontrol Merkezi`, iconURL: interaction.guild.iconURL() })
+            .setDescription(`👋 **Hoş geldin Şef!**\nSunucunu yönetmek hiç bu kadar kolay olmamıştı. Aşağıdaki menüden işlem yapmak istediğin kategoriyi seç.`)
             .addFields(
-                { name: '🛡️ Koruma', value: 'Küfür, Reklam, Link Engel', inline: true },
-                { name: '⚙️ Sistemler', value: 'Log, Global Chat, Starboard', inline: true },
-                { name: '🛠️ Moderasyon', value: 'Sohbet Temizle, Kilitle', inline: true }
+                { name: '🛡️ Koruma Duvarı', value: '`Küfür`, `Reklam`, `Link` engellerini yönet.', inline: true },
+                { name: '⚙️ Sistem Ayarları', value: '`Log`, `Global Chat` kanallarını ayarla.', inline: true },
+                { name: '🔨 Moderasyon', value: '`Sil`, `Kilitle`, `Aç` işlemlerini yap.', inline: true }
             )
-            .setColor('DarkVividPink')
-            .setImage('https://media.discordapp.net/attachments/100000000000000000/110000000000000000/banner.png?width=960&height=540') // İstersen buraya banner koyabilirsin
-            .setFooter({ text: 'GoniBot v3.0 Ultimate Panel' });
+            .setImage('https://media.discordapp.net/attachments/1033464536838328391/1085611425624670268/panel_banner.png')
+            .setColor('DarkButNotBlack')
+            .setTimestamp();
 
         const menu = new StringSelectMenuBuilder()
             .setCustomId('panel_ana_menu')
-            .setPlaceholder('Bir kategori seçin...')
+            .setPlaceholder('⚡ İşlem Menüsünü Aç')
             .addOptions(
-                { label: 'Koruma Ayarları', description: 'Güvenlik duvarlarını yönet.', value: 'menu_koruma', emoji: '🛡️' },
-                { label: 'Sistem Ayarları', description: 'Log ve kanal kurulumları.', value: 'menu_sistem', emoji: '⚙️' },
-                { label: 'Moderasyon', description: 'Sohbet işlemleri.', value: 'menu_mod', emoji: '🔨' }
+                { label: 'Koruma Ayarları', value: 'menu_koruma', emoji: '🛡️', description: 'Güvenlik filtrelerini aç/kapat.' },
+                { label: 'Sistem Kurulumu', value: 'menu_sistem', emoji: '⚙️', description: 'Kanal ve log ayarları.' },
+                { label: 'Moderasyon', value: 'menu_mod', emoji: '🔨', description: 'Sohbet yönetimi.' }
             );
 
-        const row = new ActionRowBuilder().addComponents(menu);
-
-        await interaction.reply({ embeds: [embed], components: [row] });
+        await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
     },
 };
