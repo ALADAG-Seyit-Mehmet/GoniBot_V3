@@ -1,14 +1,27 @@
-const { ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActivityType } = require('discord.js');
 const db = require('croxydb');
 
 module.exports = {
     name: 'ready',
     once: true,
     execute(client) {
-        console.log(`🚀 ${client.user.tag} Aktif!`);
-        client.user.setActivity("Goni'nin Krallığı", { type: ActivityType.Competing });
+        console.log(`🚀 ${client.user.tag} Hazır ve Nazır!`);
 
-        // Zaman Kapsülü ve Boss Spawn (Zamanlayıcılar)
+        // --- DİNAMİK DURUM AYARI ---
+        const states = [
+            { name: "Goni'nin Krallığı", type: ActivityType.Competing },
+            { name: "/yardım | Komutlar", type: ActivityType.Listening },
+            { name: "Borsayı Takip Ediyor 📈", type: ActivityType.Watching },
+            { name: `${client.guilds.cache.size} Sunucu | ${client.guilds.cache.reduce((a,b)=>a+b.memberCount,0)} Üye`, type: ActivityType.Watching }
+        ];
+
+        let i = 0;
+        setInterval(() => {
+            client.user.setActivity(states[i].name, { type: states[i].type });
+            i = (i + 1) % states.length;
+        }, 10000); // 10 Saniyede bir değişir
+
+        // --- ZAMANLAYICILAR (Boss & Kapsül) ---
         setInterval(() => {
             const liste = db.fetch('kapsul_listesi') || [];
             liste.forEach(id => {
@@ -28,8 +41,9 @@ module.exports = {
                      const chID = db.fetch(`globalKanal_${g.id}`);
                      const ch = g.channels.cache.get(chID);
                      if(ch) {
-                         const btn = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("boss_vur").setLabel("SALDIR").setStyle(ButtonStyle.Danger));
-                         ch.send({content: "👹 **DÜNYA BOSSU BELİRDİ!** (Can: 5000)", components: [btn]}).then(m => db.set(`boss_${m.id}`, 5000));
+                         const btn = { type: 1, components: [{ type: 2, label: "SALDIR", style: 4, custom_id: "boss_vur" }] };
+                         // Basit buton yapısı (require karmaşası olmasın diye)
+                         ch.send({ content: "👹 **DÜNYA BOSSU BELİRDİ!**", components: [btn] }).then(m => db.set(`boss_${m.id}`, 5000));
                      }
                  });
             }
