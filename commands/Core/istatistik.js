@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, version, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('croxydb');
-const os = require('os');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +14,7 @@ module.exports = {
         const targetUser = interaction.options.getUser('kullanici');
 
         // ====================================================
-        // SENARYO 1: KULLANICI PROFİLİ (Değişmedi)
+        // SENARYO 1: KULLANICI PROFİLİ (Dokunulmadı)
         // ====================================================
         if (targetUser) {
             const member = interaction.guild.members.cache.get(targetUser.id);
@@ -38,66 +37,81 @@ module.exports = {
                 .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
                 .setColor(member.displayHexColor)
                 .addFields(
-                    { name: '📅 Tarihçesi', value: `Sunucuya: <t:${parseInt(member.joinedTimestamp / 1000)}:R>\nDiscord'a: <t:${parseInt(targetUser.createdTimestamp / 1000)}:D>`, inline: true },
-                    { name: '⚔️ RPG & Ekonomi', value: `💰 **${para} TL** | ✨ **${xp} XP**\n🏰 Klan: **${klan}** | 💍 **${partner}**`, inline: false },
+                    { name: '🆔 Kimlik', value: `\`${targetUser.id}\``, inline: true },
+                    { name: '📅 Katılım Tarihi', value: `<t:${parseInt(member.joinedTimestamp / 1000)}:R>`, inline: true },
+                    { name: '📆 Hesap Tarihi', value: `<t:${parseInt(targetUser.createdTimestamp / 1000)}:D>`, inline: true },
+                    
+                    { name: '⚔️ RPG Durumu', value: `
+                    💰 **Para:** ${para} TL
+                    ✨ **XP:** ${xp}
+                    🏰 **Klan:** ${klan}
+                    💍 **Durum:** ${partner}
+                    ⚖️ **Sicil:** ${hapis}
+                    `, inline: false },
+
                     { name: `🎭 Roller`, value: roles, inline: false }
-                );
+                )
+                .setFooter({ text: `GoniBot v3.0 • Profil` });
 
             return interaction.reply({ embeds: [embed] });
         }
 
         // ====================================================
-        // SENARYO 2: BOT İSTATİSTİĞİ (Yenileme Özelliği Eklendi)
+        // SENARYO 2: BOT İSTATİSTİĞİ (Orijinal Tasarım + Çalışan Buton)
         // ====================================================
         
-        // İstatistik Oluşturma Fonksiyonu (Tekrar tekrar kullanacağız)
-        const getStatsEmbed = (client) => {
+        // Embed Oluşturan Fonksiyon (Güncelleme için lazım)
+        const createStatsEmbed = (client) => {
             const uptime = process.uptime();
             const days = Math.floor(uptime / 86400);
             const hours = Math.floor(uptime / 3600) % 24;
             const minutes = Math.floor(uptime / 60) % 60;
-            
+
             return new EmbedBuilder()
-                .setTitle('🤖 GoniBot Sistem Durumu')
+                .setTitle('🤖 GoniBot Sistem Verileri')
+                .setDescription('Goni tarafından geliştirilen üst düzey yönetim ve eğlence botu.')
                 .addFields(
-                    { name: '💻 Sunucu', value: `${client.guilds.cache.size}`, inline: true },
-                    { name: '👥 Kullanıcı', value: `${client.guilds.cache.reduce((a, b) => a + b.memberCount, 0)}`, inline: true },
-                    { name: '🏓 Ping', value: `**${client.ws.ping}ms**`, inline: true },
-                    { name: '🧠 RAM', value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, inline: true },
-                    { name: '⏱️ Süre', value: `${days}g ${hours}s ${minutes}dk`, inline: true },
-                    { name: '📚 Kütüphane', value: `Discord.js v${version}`, inline: true }
+                    { name: '👑 Geliştirici', value: 'Goni', inline: true },
+                    { name: '🏓 Gecikme (Ping)', value: `**${client.ws.ping}ms**`, inline: true },
+                    { name: '⏱️ Çalışma Süresi', value: `${days}g ${hours}s ${minutes}dk`, inline: true },
+                    
+                    { name: '📊 İstatistikler', value: `
+                    💻 **Sunucu:** ${client.guilds.cache.size}
+                    👥 **Kullanıcı:** ${client.guilds.cache.reduce((a, b) => a + b.memberCount, 0)}
+                    📺 **Kanal:** ${client.channels.cache.size}
+                    `, inline: true },
+
+                    { name: '⚙️ Altyapı', value: `
+                    🧠 **RAM:** ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB
+                    📚 **Discord.js:** v${version}
+                    🟢 **Node.js:** ${process.version}
+                    `, inline: true }
                 )
-                .setColor('Blurple')
-                .setThumbnail(client.user.displayAvatarURL())
-                .setFooter({ text: `Son Güncelleme: ${new Date().toLocaleTimeString()}` });
+                .setColor('DarkButNotBlack')
+                .setThumbnail(client.user.displayAvatarURL());
         };
 
-        // Sadece Yenile Butonu
+        // Sadece YENİLE butonu (Destek kaldırıldı)
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('btn_yenile_stats').setLabel('Verileri Yenile').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
         );
 
-        // Mesajı Gönder
-        const response = await interaction.reply({ embeds: [getStatsEmbed(interaction.client)], components: [row], fetchReply: true });
+        const response = await interaction.reply({ embeds: [createStatsEmbed(interaction.client)], components: [row], fetchReply: true });
 
-        // BUTON DİNLEYİCİSİ (Collector)
-        const collector = response.createMessageComponentCollector({ time: 60000 }); // 60 Saniye aktif kalır
+        // Butonu Dinle
+        const collector = response.createMessageComponentCollector({ time: 60000 });
 
         collector.on('collect', async i => {
             if (i.customId === 'btn_yenile_stats') {
-                // Sadece butona basan kişi yenileyebilsin istersen:
-                // if(i.user.id !== interaction.user.id) return i.reply({content: "Bunu sen yapamazsın.", ephemeral: true});
-                
-                await i.update({ embeds: [getStatsEmbed(interaction.client)], components: [row] });
+                await i.update({ embeds: [createStatsEmbed(interaction.client)], components: [row] });
             }
         });
 
         collector.on('end', () => {
-            // Süre bitince butonu devre dışı bırak
-            const disabledRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('btn_yenile_stats').setLabel('Süre Doldu').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(true)
+            const disabled = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('btn_yenile_stats').setLabel('Yenile').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(true)
             );
-            interaction.editReply({ components: [disabledRow] }).catch(() => {});
+            interaction.editReply({ components: [disabled] }).catch(() => {});
         });
     },
 };
