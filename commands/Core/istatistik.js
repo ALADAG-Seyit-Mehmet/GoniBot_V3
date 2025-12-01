@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, version, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('croxydb');
+const os = require('os');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -14,7 +15,7 @@ module.exports = {
         const targetUser = interaction.options.getUser('kullanici');
 
         // ====================================================
-        // SENARYO 1: KULLANICI PROFİLİ (Dokunulmadı)
+        // SENARYO 1: KULLANICI PROFİLİ (Biyografi Eklendi)
         // ====================================================
         if (targetUser) {
             const member = interaction.guild.members.cache.get(targetUser.id);
@@ -24,6 +25,9 @@ module.exports = {
             const partnerID = db.fetch(`partner_${targetUser.id}`);
             const partner = partnerID ? `<@${partnerID}>` : "Bekar";
             const hapis = db.fetch(`hapis_${targetUser.id}`) ? "🔒 Hapiste" : "Serbest";
+            
+            // BİYOGRAFİYİ ÇEK
+            const biyo = db.fetch(`biyografi_${targetUser.id}`) || "Henüz bir biyografi yazılmamış. (/biyografi)";
 
             const roles = member.roles.cache
                 .filter(r => r.id !== interaction.guild.id)
@@ -36,19 +40,10 @@ module.exports = {
                 .setAuthor({ name: targetUser.tag, iconURL: targetUser.displayAvatarURL() })
                 .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
                 .setColor(member.displayHexColor)
+                .setDescription(`> *"${biyo}"*`) // Biyografi burada görünecek
                 .addFields(
-                    { name: '🆔 Kimlik', value: `\`${targetUser.id}\``, inline: true },
-                    { name: '📅 Katılım Tarihi', value: `<t:${parseInt(member.joinedTimestamp / 1000)}:R>`, inline: true },
-                    { name: '📆 Hesap Tarihi', value: `<t:${parseInt(targetUser.createdTimestamp / 1000)}:D>`, inline: true },
-                    
-                    { name: '⚔️ RPG Durumu', value: `
-                    💰 **Para:** ${para} TL
-                    ✨ **XP:** ${xp}
-                    🏰 **Klan:** ${klan}
-                    💍 **Durum:** ${partner}
-                    ⚖️ **Sicil:** ${hapis}
-                    `, inline: false },
-
+                    { name: '📅 Tarihçesi', value: `Sunucuya: <t:${parseInt(member.joinedTimestamp / 1000)}:R>\nDiscord'a: <t:${parseInt(targetUser.createdTimestamp / 1000)}:D>`, inline: true },
+                    { name: '⚔️ RPG & Ekonomi', value: `💰 **${para} TL** | ✨ **${xp} XP**\n🏰 Klan: **${klan}** | 💍 **${partner}**`, inline: false },
                     { name: `🎭 Roller`, value: roles, inline: false }
                 )
                 .setFooter({ text: `GoniBot v3.0 • Profil` });
@@ -57,10 +52,9 @@ module.exports = {
         }
 
         // ====================================================
-        // SENARYO 2: BOT İSTATİSTİĞİ (Orijinal Tasarım + Çalışan Buton)
+        // SENARYO 2: BOT İSTATİSTİĞİ (Aynı Kaldı)
         // ====================================================
         
-        // Embed Oluşturan Fonksiyon (Güncelleme için lazım)
         const createStatsEmbed = (client) => {
             const uptime = process.uptime();
             const days = Math.floor(uptime / 86400);
@@ -91,14 +85,12 @@ module.exports = {
                 .setThumbnail(client.user.displayAvatarURL());
         };
 
-        // Sadece YENİLE butonu (Destek kaldırıldı)
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('btn_yenile_stats').setLabel('Verileri Yenile').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
         );
 
         const response = await interaction.reply({ embeds: [createStatsEmbed(interaction.client)], components: [row], fetchReply: true });
 
-        // Butonu Dinle
         const collector = response.createMessageComponentCollector({ time: 60000 });
 
         collector.on('collect', async i => {

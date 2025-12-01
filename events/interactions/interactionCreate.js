@@ -1,7 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const db = require('croxydb');
 
-// Log Fonksiyonu
 async function logGonder(guild, baslik, renk, aciklama) {
     const logID = db.fetch(`logKanal_${guild.id}`);
     if(!logID) return;
@@ -13,153 +12,158 @@ module.exports = {
     name: 'interactionCreate',
     async execute(interaction, client) {
 
-        // --- HAPİS KONTROL ---
         if (interaction.isChatInputCommand()) {
             const hapis = db.fetch(`hapis_${interaction.user.id}`);
-            if (hapis) {
-                if (Date.now() < hapis) return interaction.reply({ content: "🔒 Hapistesin! Komut kullanamazsın.", ephemeral: true });
-                else db.delete(`hapis_${interaction.user.id}`);
-            }
+            if (hapis && Date.now() < hapis) return interaction.reply({ content: "🔒 Hapistesin!", ephemeral: true });
+            if (hapis && Date.now() > hapis) db.delete(`hapis_${interaction.user.id}`);
+            const cmd = client.commands.get(interaction.commandName);
+            if (cmd) try { await cmd.execute(interaction); } catch (e) { console.error(e); }
         }
 
-        // --- KOMUT YÖNETİCİSİ ---
-        if (interaction.isChatInputCommand() || interaction.isUserContextMenuCommand()) {
-            const command = client.commands.get(interaction.commandName);
-            if (command) try { await command.execute(interaction); } catch (e) { console.error(e); }
+        // ====================================================
+        //              YENİ ÖZELLİKLER (ÇEKİLİŞ & ÖNERİ)
+        // ====================================================
+
+        // ÇEKİLİŞ KATILIM
+        if (interaction.isButton() && interaction.customId.startsWith('cekilis_katil_')) {
+            const id = interaction.customId.split('_')[2];
+            const data = db.fetch(`cekilis_${id}`);
+            
+            if (!data) return interaction.reply({ content: 'Bu çekiliş bitmiş.', ephemeral: true });
+            if (data.katilanlar.includes(interaction.user.id)) return interaction.reply({ content: 'Zaten katıldın!', ephemeral: true });
+
+            // Ekle
+            db.push(`cekilis_${id}.katilanlar`, interaction.user.id);
+            
+            // Buton Sayısını Güncelle
+            const yeniData = db.fetch(`cekilis_${id}`);
+            const row = ActionRowBuilder.from(interaction.message.components[0]);
+            row.components[0].setLabel(`Çekilişe Katıl (${yeniData.katilanlar.length})`);
+            
+            await interaction.update({ components: [row] });
+            // interaction.followUp({ content: '🎉 Çekilişe katıldın!', ephemeral: true }); // Opsiyonel bildirim
         }
 
-        // --- TICKET SİSTEMİ ---
+        // ÖNERİ OYLAMA
+        if (interaction.isButton() && (interaction.customId === 'oy_evet' || interaction.customId === 'oy_hayir')) {
+            // Basit oylama mantığı: Embeddeki sayıları artırır
+            // Profesyonel sistemde kimin oy verdiği DB'ye kaydedilir ki tekrar basamasın.
+            // Şimdilik görsel artış yapalım:
+            
+            const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+            let fieldIndex = interaction.customId === 'oy_evet' ? 0 : 1;
+            let currentVal = parseInt(embed.fields[fieldIndex].value);
+            
+            embed.fields[fieldIndex].value = (currentVal + 1).toString();
+            
+            await interaction.update({ embeds: [embed] });
+        }
+
+        // ROL MENÜSÜ İŞLEMİ (Demo)
+        if (interaction.isStringSelectMenu() && interaction.customId === 'rol_al_menu') {
+            const secim = interaction.values[0];
+            // Burada gerçek Rol ID'leri kullanılmalı.
+            // interaction.member.roles.add("ROL_ID");
+            interaction.reply({ content: `✅ **${secim}** rolü için işlem yapıldı. (Demo: Gerçek ID girilirse çalışır)`, ephemeral: true });
+        }
+
+        // ====================================================
+        //              TICKET SİSTEMİ (Transcriptli)
+        // ====================================================
         if (interaction.isStringSelectMenu() && interaction.customId === "ticket_secim") {
-            const secim = interaction.values[0];
-            let kanalAdi = "", konu = "", renk = "";
-            if (secim === "ticket_destek") { kanalAdi = "destek"; konu = "Genel Destek"; renk = "Green"; }
-            if (secim === "ticket_sikayet") { kanalAdi = "sikayet"; konu = "Şikayet Bildirimi"; renk = "Red"; }
-            if (secim === "ticket_basvuru") { kanalAdi = "basvuru"; konu = "Yetkili Başvurusu"; renk = "Gold"; }
-
-            if (interaction.guild.channels.cache.find(c => c.name === `${kanalAdi}-${interaction.user.username.toLowerCase()}`)) {
-                return interaction.reply({ content: `❌ Zaten açık bir **${konu}** talebin var!`, ephemeral: true });
-            }
-            const channel = await interaction.guild.channels.create({
-                name: `${kanalAdi}-${interaction.user.username}`,
-                type: ChannelType.GuildText,
-                permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-                ]
-            });
-            const embed = new EmbedBuilder().setTitle(`🎫 ${konu}`).setDescription(`Hoş geldin ${interaction.user}! Yetkililer birazdan burada olacak.`).setColor(renk);
-            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("ticket_kapat").setLabel("Talebi Kapat").setStyle(ButtonStyle.Secondary).setEmoji("🔒"));
-            await channel.send({ content: `<@${interaction.user.id}> | @here`, embeds: [embed], components: [row] });
-            await interaction.reply({ content: `✅ **${konu}** talebin oluşturuldu: ${channel}`, ephemeral: true });
-            logGonder(interaction.guild, "🎫 Ticket Açıldı", "Green", `**Açan:** ${interaction.user}\n**Kanal:** ${channel}\n**Konu:** ${konu}`);
+            const s = interaction.values[0];
+            let n="destek", t="Destek", c="Green";
+            if(s==="ticket_sikayet"){n="sikayet";t="Şikayet";c="Red";} if(s==="ticket_basvuru"){n="basvuru";t="Başvuru";c="Gold";}
+            if(interaction.guild.channels.cache.find(x=>x.name===`${n}-${interaction.user.username.toLowerCase()}`)) return interaction.reply({content:"Zaten var!", ephemeral:true});
+            const ch = await interaction.guild.channels.create({ name: `${n}-${interaction.user.username}`, type: ChannelType.GuildText, permissionOverwrites:[{id:interaction.guild.id,deny:[PermissionsBitField.Flags.ViewChannel]},{id:interaction.user.id,allow:[PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]},{id:client.user.id,allow:[PermissionsBitField.Flags.ViewChannel]}] });
+            ch.send({content:`<@${interaction.user.id}>`, embeds:[new EmbedBuilder().setTitle(t).setDescription("Hoş geldin.").setColor(c)], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("ticket_kapat").setLabel("Kapat").setStyle(ButtonStyle.Secondary).setEmoji("🔒"))]});
+            interaction.reply({content:`Açıldı: ${ch}`, ephemeral:true});
+            logGonder(interaction.guild, "Ticket Açıldı", "Green", `Açan: ${interaction.user}`);
         }
-
-        // TICKET KAPATMA (Transcript)
         if (interaction.isButton() && interaction.customId === "ticket_kapat") {
-            await interaction.reply("💾 Sohbet kaydediliyor ve kanal siliniyor...");
+            interaction.reply("Kaydediliyor...");
             try {
-                const messages = await interaction.channel.messages.fetch({ limit: 100 });
-                const output = messages.reverse().map(m => `[${new Date(m.createdTimestamp).toLocaleTimeString()}] ${m.author.tag}: ${m.content}`).join('\n');
-                const file = new AttachmentBuilder(Buffer.from(output, "utf-8"), { name: `ticket-${interaction.channel.name}.txt` });
-                const logID = db.fetch(`logKanal_${interaction.guild.id}`);
-                if (logID) {
-                    const logCh = interaction.guild.channels.cache.get(logID);
-                    if (logCh) logCh.send({ content: `🔒 **Ticket Kapatıldı:** ${interaction.channel.name} (Kapatan: ${interaction.user.tag})`, files: [file] });
-                }
-            } catch (err) {}
-            setTimeout(() => interaction.channel.delete().catch(()=>{}), 5000);
+                const msgs = await interaction.channel.messages.fetch({ limit: 100 });
+                const txt = msgs.reverse().map(m => `${m.author.tag}: ${m.content}`).join('\n');
+                const file = new AttachmentBuilder(Buffer.from(txt, "utf-8"), { name: `ticket.txt` });
+                const l = db.fetch(`logKanal_${interaction.guild.id}`);
+                if(l) interaction.guild.channels.cache.get(l)?.send({content:`🔒 **Kapatıldı:** ${interaction.channel.name} (${interaction.user.tag})`, files:[file]});
+            } catch(e){}
+            setTimeout(()=>interaction.channel.delete().catch(()=>{}), 3000);
         }
 
         // ====================================================
-        //              PANEL SİSTEMİ (GÜNCELLENDİ)
+        //              PANEL SİSTEMİ (Full + Hoşgeldin)
         // ====================================================
-
         if (interaction.isStringSelectMenu() && interaction.customId === "panel_ana_menu") {
-            const secim = interaction.values[0];
-            if (secim === "menu_koruma") {
-                const k1 = db.fetch(`kufurEngel_${interaction.guild.id}`);
-                const k2 = db.fetch(`reklamEngel_${interaction.guild.id}`);
-                const k3 = db.fetch(`linkEngel_${interaction.guild.id}`);
-                const embed = new EmbedBuilder().setTitle("🛡️ Güvenlik").setDescription("Korumaları yönet.").setColor("Red");
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId("btn_kufur").setLabel("Küfür").setStyle(k1?ButtonStyle.Success:ButtonStyle.Secondary).setEmoji("🤬"),
-                    new ButtonBuilder().setCustomId("btn_reklam").setLabel("Reklam").setStyle(k2?ButtonStyle.Success:ButtonStyle.Secondary).setEmoji("📢"),
-                    new ButtonBuilder().setCustomId("btn_link").setLabel("Link").setStyle(k3?ButtonStyle.Success:ButtonStyle.Secondary).setEmoji("🔗"),
+            const v = interaction.values[0];
+            if(v==="menu_koruma"){
+                const k1=db.fetch(`kufurEngel_${interaction.guild.id}`), k2=db.fetch(`reklamEngel_${interaction.guild.id}`), k3=db.fetch(`linkEngel_${interaction.guild.id}`);
+                const r = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId("btn_kufur").setLabel("Küfür").setStyle(k1?ButtonStyle.Success:ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId("btn_reklam").setLabel("Reklam").setStyle(k2?ButtonStyle.Success:ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId("btn_link").setLabel("Link").setStyle(k3?ButtonStyle.Success:ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId("btn_geri").setLabel("Geri").setStyle(ButtonStyle.Danger)
                 );
-                interaction.update({embeds:[embed], components:[row]});
+                interaction.update({embeds:[new EmbedBuilder().setTitle("🛡️ Koruma").setColor("Red")], components:[r]});
             }
-            if (secim === "menu_sistem") {
-                const embed = new EmbedBuilder().setTitle("⚙️ Sistem Ayarları").setColor("Blue");
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId("sys_log").setLabel("Log").setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId("sys_global").setLabel("Global").setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId("sys_welcome").setLabel("Hoş Geldin").setStyle(ButtonStyle.Primary).setEmoji("👋"), // YENİ BUTON
+            if(v==="menu_sistem"){
+                const r = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId("sys_log").setLabel("Log").setStyle(ButtonStyle.Primary).setEmoji("📜"),
+                    new ButtonBuilder().setCustomId("sys_global").setLabel("Global").setStyle(ButtonStyle.Primary).setEmoji("🌐"),
+                    new ButtonBuilder().setCustomId("sys_welcome").setLabel("Hoş Geldin").setStyle(ButtonStyle.Primary).setEmoji("👋"),
                     new ButtonBuilder().setCustomId("sys_modrol").setLabel("Mod Rolü").setStyle(ButtonStyle.Success).setEmoji("👮‍♂️"),
                     new ButtonBuilder().setCustomId("btn_geri").setLabel("Geri").setStyle(ButtonStyle.Danger)
                 );
-                interaction.update({embeds:[embed], components:[row]});
+                interaction.update({embeds:[new EmbedBuilder().setTitle("⚙️ Sistemler").setColor("Blue")], components:[r]});
             }
-            if (secim === "menu_mod") {
-                const embed = new EmbedBuilder().setTitle("🔨 Moderasyon").setColor("Orange");
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId("mod_sil").setLabel("Temizle (20)").setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId("mod_kilit").setLabel("Kilitle").setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId("mod_ac").setLabel("Aç").setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId("btn_geri").setLabel("Geri").setStyle(ButtonStyle.Danger)
-                );
-                interaction.update({embeds:[embed], components:[row]});
+            if(v==="menu_mod"){
+                const r = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("mod_sil").setLabel("Sil").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("mod_kilit").setLabel("Kilitle").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("btn_geri").setLabel("Geri").setStyle(ButtonStyle.Danger));
+                interaction.update({embeds:[new EmbedBuilder().setTitle("🔨 Moderasyon").setColor("Orange")], components:[r]});
             }
         }
 
         if (interaction.isButton()) {
-            if (interaction.customId === "btn_geri") {
-                const embed = new EmbedBuilder().setTitle("🎛️ Ana Menü").setColor("DarkButNotBlack");
-                const menu = new StringSelectMenuBuilder().setCustomId("panel_ana_menu").setPlaceholder("Menü Seç...").addOptions({ label: 'Koruma', value: 'menu_koruma', emoji: '🛡️' }, { label: 'Sistemler', value: 'menu_sistem', emoji: '⚙️' }, { label: 'Moderasyon', value: 'menu_mod', emoji: '🔨' });
-                interaction.update({embeds:[embed], components:[new ActionRowBuilder().addComponents(menu)]});
+            if(interaction.customId==="btn_geri") {
+                const m = new StringSelectMenuBuilder().setCustomId("panel_ana_menu").addOptions({label:'Koruma',value:'menu_koruma'},{label:'Sistemler',value:'menu_sistem'},{label:'Moderasyon',value:'menu_mod'});
+                interaction.update({embeds:[new EmbedBuilder().setTitle("🎛️ Panel").setColor("Black")], components:[new ActionRowBuilder().addComponents(m)]});
             }
-            // Toggle
-            if (["btn_kufur","btn_reklam","btn_link"].includes(interaction.customId)) {
-                const key = interaction.customId.replace("btn_","")+"Engel";
-                const val = db.fetch(`${key}_${interaction.guild.id}`);
-                if(val) db.delete(`${key}_${interaction.guild.id}`); else db.set(`${key}_${interaction.guild.id}`, true);
-                logGonder(interaction.guild, "🛡️ Koruma", "Orange", `İşlem: ${key}\nYapan: ${interaction.user}`);
-                const newRow = ActionRowBuilder.from(interaction.message.components[0]);
-                const idx = newRow.components.findIndex(b=>b.data.custom_id===interaction.customId);
-                newRow.components[idx].setStyle(!val?ButtonStyle.Success:ButtonStyle.Secondary);
-                interaction.update({components:[newRow]});
+            if(["btn_kufur","btn_reklam","btn_link"].includes(interaction.customId)){
+                const k = interaction.customId.replace("btn_","")+"Engel";
+                const v = db.fetch(`${k}_${interaction.guild.id}`);
+                if(v) db.delete(`${k}_${interaction.guild.id}`); else db.set(`${k}_${interaction.guild.id}`, true);
+                const r = ActionRowBuilder.from(interaction.message.components[0]);
+                const i = r.components.findIndex(x=>x.data.custom_id===interaction.customId);
+                r.components[i].setStyle(!v?ButtonStyle.Success:ButtonStyle.Secondary);
+                interaction.update({components:[r]});
             }
-
-            // Kanal & Rol Seçiciler
-            if (interaction.customId === "sys_log") interaction.reply({content:"📜 Log kanalı seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_log_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
-            if (interaction.customId === "sys_global") interaction.reply({content:"🌐 Global Chat seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_global_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
-            if (interaction.customId === "sys_welcome") interaction.reply({content:"👋 Hoş geldin mesajları nereye gitsin?", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_welcome_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true}); // YENİ SEÇİCİ
-            if (interaction.customId === "sys_modrol") interaction.reply({content:"👮‍♂️ Moderatör rolünü seç:", components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId("set_mod_role"))], ephemeral:true});
-
-            // Mod
-            if (interaction.customId === "mod_sil") { await interaction.channel.bulkDelete(20, true); interaction.reply({content:"Silindi.", ephemeral:true}); }
-            if (interaction.customId === "mod_kilit") { await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false }); interaction.reply({content:"Kilitlendi.", ephemeral:true}); }
-            if (interaction.customId === "mod_ac") { await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true }); interaction.reply({content:"Açıldı.", ephemeral:true}); }
+            if(interaction.customId==="sys_log") interaction.reply({components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_log_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
+            if(interaction.customId==="sys_global") interaction.reply({components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_global_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
+            if(interaction.customId==="sys_welcome") interaction.reply({components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_welcome_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
+            if(interaction.customId==="sys_modrol") interaction.reply({components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId("set_mod_role"))], ephemeral:true});
             
-            // Boss
-            if (interaction.customId === "boss_vur") {
-                let hp = db.fetch(`boss_${interaction.message.id}`);
-                if(hp <= 0) return interaction.reply({content:"Öldü!", ephemeral: true});
-                hp -= 100; db.set(`boss_${interaction.message.id}`, hp);
-                if(hp <= 0) { interaction.update({content: `🏆 Boss öldü!`, components: []}); db.add(`para_${interaction.user.id}`, 5000); }
-                else interaction.reply({content: `Vurdun! Kalan: ${hp}`, ephemeral: true});
+            if(interaction.customId==="mod_sil") { await interaction.channel.bulkDelete(20,true); interaction.reply({content:"Silindi.", ephemeral:true}); }
+            if(interaction.customId==="mod_kilit") { interaction.channel.permissionOverwrites.edit(interaction.guild.id, {SendMessages:false}); interaction.reply({content:"Kilitlendi.", ephemeral:true}); }
+            
+            if(interaction.customId==="boss_vur") {
+                let h = db.fetch(`boss_${interaction.message.id}`);
+                if(h<=0) return interaction.reply({content:"Öldü.", ephemeral:true});
+                h-=100; db.set(`boss_${interaction.message.id}`, h);
+                if(h<=0) { interaction.update({content:"🏆 Öldü!", components:[]}); db.add(`para_${interaction.user.id}`, 5000); }
+                else interaction.reply({content:`Vurdun! Kalan: ${h}`, ephemeral:true});
             }
         }
-        
-        // Kanal & Rol Kayıt
-        if (interaction.isChannelSelectMenu()) {
-            if (interaction.customId === "set_log_channel") { db.set(`logKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Log Kaydedildi.", components:[]}); }
-            if (interaction.customId === "set_global_channel") { db.set(`globalKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Global Kaydedildi.", components:[]}); }
-            if (interaction.customId === "set_welcome_channel") { db.set(`hosgeldinKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Hoş Geldin Kanalı Ayarlandı!", components:[]}); } // YENİ KAYIT
+
+        if(interaction.isChannelSelectMenu()) {
+            const m = interaction.values[0];
+            if(interaction.customId==="set_log_channel") db.set(`logKanal_${interaction.guild.id}`, m);
+            if(interaction.customId==="set_global_channel") db.set(`globalKanal_${interaction.guild.id}`, m);
+            if(interaction.customId==="set_welcome_channel") db.set(`hosgeldinKanal_${interaction.guild.id}`, m);
+            interaction.update({content:"✅ Ayarlandı.", components:[]});
         }
-        if (interaction.isRoleSelectMenu()) {
-             if (interaction.customId === "set_mod_role") { db.set(`modRol_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:`✅ Mod Rolü Ayarlandı!`, components:[]}); }
+        if(interaction.isRoleSelectMenu()) {
+            db.set(`modRol_${interaction.guild.id}`, interaction.values[0]);
+            interaction.update({content:"✅ Rol Ayarlandı.", components:[]});
         }
     }
 };

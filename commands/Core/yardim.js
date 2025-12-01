@@ -1,58 +1,39 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('yardım')
-        .setDescription('Tüm komutları ve özelliklerini listeler.'),
+        .setDescription('GoniBot Komut Merkezi'),
 
     async execute(interaction) {
+        // Banner Görseli (Değiştirebilirsin)
+        const banner = "https://media.discordapp.net/attachments/1033464536838328391/1085611425624670268/panel_banner.png";
+        
         const embed = new EmbedBuilder()
-            .setTitle(`🤖 ${interaction.client.user.username} Yardım Menüsü`)
-            .setDescription(`Aşağıda botun tüm komutları kategorilere ayrılmış şekilde listelenmiştir.\n\n**İşaretlerin Anlamı:**\n👮‍♂️ = **Sadece Yetkililer (Yönetici/Mod Rolü)**\n👤 = **Tüm Kullanıcılar**`)
-            .setColor('Gold')
-            .setThumbnail(interaction.client.user.displayAvatarURL())
-            .setFooter({ text: 'GoniBot v3.0 • Yardım Sistemi' })
-            .setTimestamp();
+            .setTitle('🤖 GoniBot Yardım Merkezi')
+            .setDescription(`
+                > **Merhaba ${interaction.user}!**
+                > GoniBot, sunucunu yönetmek ve eğlendirmek için tasarlandı.
+                
+                👇 **Aşağıdaki menüden bir kategori seçerek komutları incele.**
+            `)
+            .addFields(
+                { name: '🔗 Bağlantılar', value: '[Destek Sunucusu](https://discord.gg) | [Beni Ekle](https://discord.com)', inline: false }
+            )
+            .setImage(banner)
+            .setColor('DarkVividPink')
+            .setThumbnail(interaction.client.user.displayAvatarURL());
 
-        // Komut Klasörlerini Oku
-        const folders = fs.readdirSync('./commands');
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId('yardim_menu')
+            .setPlaceholder('📂 Bir Kategori Seç...')
+            .addOptions(
+                { label: 'Ekonomi & Ticaret', description: 'Para, borsa ve alışveriş.', value: 'help_eco', emoji: '💎' },
+                { label: 'RPG & Savaş', description: 'Level, klan ve macera.', value: 'help_rpg', emoji: '⚔️' },
+                { label: 'Moderasyon & Koruma', description: 'Sunucu güvenliği.', value: 'help_mod', emoji: '🛡️' },
+                { label: 'Eğlence & Sosyal', description: 'Oyunlar ve etkileşim.', value: 'help_fun', emoji: '🎲' }
+            );
 
-        for (const folder of folders) {
-            const files = fs.readdirSync(`./commands/${folder}`).filter(file => file.endsWith('.js'));
-            if (files.length === 0) continue;
-
-            // Kategoriye Göre Emoji ve Yetki Belirle
-            let emoji = '📂';
-            let yetki = '👤'; // Varsayılan: Herkes
-
-            if (folder === 'Moderasyon') { emoji = '🛠️'; yetki = '👮‍♂️'; }
-            if (folder === 'Koruma') { emoji = '🛡️'; yetki = '👮‍♂️'; }
-            if (folder === 'Sistemler') { emoji = '⚙️'; yetki = '👮‍♂️'; }
-            if (folder === 'Core') { emoji = '🧠'; }
-            if (folder === 'Ekonomi') { emoji = '💰'; }
-            if (folder === 'RPG') { emoji = '⚔️'; }
-            if (folder === 'Eglence') { emoji = '🎲'; }
-            if (folder === 'Suc') { emoji = '🔪'; }
-
-            // Komutları Tek Tek Listele
-            const commandList = files.map(file => {
-                try {
-                    const cmd = require(`../${folder}/${file}`);
-                    if (cmd.data && cmd.data.name) {
-                        return `\`/${cmd.data.name}\`: ${cmd.data.description}`;
-                    }
-                } catch (e) { return null; }
-            }).filter(c => c !== null).join('\n');
-
-            if (commandList) {
-                embed.addFields({
-                    name: `${emoji} ${folder} (${yetki})`,
-                    value: commandList
-                });
-            }
-        }
-
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
     },
 };
