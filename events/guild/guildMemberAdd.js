@@ -5,11 +5,11 @@ const db = require('croxydb');
 module.exports = {
     name: 'guildMemberAdd',
     async execute(member) {
-        // Log Kanalını Bul
-        const logChannelID = db.fetch(`logKanal_${member.guild.id}`);
-        if (!logChannelID) return;
+        // Yeni Ayarlanan Kanalı Çek
+        const welcomeChannelID = db.fetch(`hosgeldinKanal_${member.guild.id}`);
+        if (!welcomeChannelID) return; // Ayarlı değilse atma
         
-        const channel = member.guild.channels.cache.get(logChannelID);
+        const channel = member.guild.channels.cache.get(welcomeChannelID);
         if (!channel) return;
 
         // Resmi Oluştur
@@ -25,15 +25,11 @@ module.exports = {
             .setColor("message-box", "#000000")
             .setColor("border", "#ffffff")
             .setColor("avatar", "#ffffff")
-            .setBackground("https://images.wallpapersden.com/image/download/abstract-shapes-dark-4k_bGdma2uUmZqaraWkpJRmbmdlrWZlbWY.jpg"); // Arkaplan
+            .setBackground("https://images.wallpapersden.com/image/download/abstract-shapes-dark-4k_bGdma2uUmZqaraWkpJRmbmdlrWZlbWY.jpg");
 
         card.build().then(buffer => {
             const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
             channel.send({ content: `👋 Hoş geldin ${member}!`, files: [attachment] });
         });
-
-        // Otorol varsa ver
-        // const otorol = db.fetch(`otorol_${member.guild.id}`);
-        // if(otorol) member.roles.add(otorol).catch(()=>{});
     }
 };

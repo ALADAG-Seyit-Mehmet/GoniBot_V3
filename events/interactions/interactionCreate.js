@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ChannelType, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const db = require('croxydb');
 
 // Log Fonksiyonu
@@ -28,9 +28,7 @@ module.exports = {
             if (command) try { await command.execute(interaction); } catch (e) { console.error(e); }
         }
 
-        // ====================================================
-        //              TICKET SİSTEMİ
-        // ====================================================
+        // --- TICKET SİSTEMİ ---
         if (interaction.isStringSelectMenu() && interaction.customId === "ticket_secim") {
             const secim = interaction.values[0];
             let kanalAdi = "", konu = "", renk = "";
@@ -56,11 +54,20 @@ module.exports = {
             await interaction.reply({ content: `✅ **${konu}** talebin oluşturuldu: ${channel}`, ephemeral: true });
             logGonder(interaction.guild, "🎫 Ticket Açıldı", "Green", `**Açan:** ${interaction.user}\n**Kanal:** ${channel}\n**Konu:** ${konu}`);
         }
+
+        // TICKET KAPATMA (Transcript)
         if (interaction.isButton() && interaction.customId === "ticket_kapat") {
-            // Transcript kısmı interactionCreate'de çok yer kapladığı için burada özet geçiyorum, önceki kodun üzerine yazıyoruz.
-            // Ama transcript özelliğini korumak için basitçe silme yapıyoruz.
-            interaction.reply("🔒 Kanal siliniyor...");
-            logGonder(interaction.guild, "🎫 Ticket Kapatıldı", "Red", `**Kapatan:** ${interaction.user}\n**Kanal:** ${interaction.channel.name}`);
+            await interaction.reply("💾 Sohbet kaydediliyor ve kanal siliniyor...");
+            try {
+                const messages = await interaction.channel.messages.fetch({ limit: 100 });
+                const output = messages.reverse().map(m => `[${new Date(m.createdTimestamp).toLocaleTimeString()}] ${m.author.tag}: ${m.content}`).join('\n');
+                const file = new AttachmentBuilder(Buffer.from(output, "utf-8"), { name: `ticket-${interaction.channel.name}.txt` });
+                const logID = db.fetch(`logKanal_${interaction.guild.id}`);
+                if (logID) {
+                    const logCh = interaction.guild.channels.cache.get(logID);
+                    if (logCh) logCh.send({ content: `🔒 **Ticket Kapatıldı:** ${interaction.channel.name} (Kapatan: ${interaction.user.tag})`, files: [file] });
+                }
+            } catch (err) {}
             setTimeout(() => interaction.channel.delete().catch(()=>{}), 5000);
         }
 
@@ -86,9 +93,10 @@ module.exports = {
             if (secim === "menu_sistem") {
                 const embed = new EmbedBuilder().setTitle("⚙️ Sistem Ayarları").setColor("Blue");
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId("sys_log").setLabel("Log Kanalı").setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId("sys_global").setLabel("Global Chat").setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId("sys_modrol").setLabel("Moderatör Rolü").setStyle(ButtonStyle.Success).setEmoji("👮‍♂️"), // YENİ BUTON
+                    new ButtonBuilder().setCustomId("sys_log").setLabel("Log").setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId("sys_global").setLabel("Global").setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId("sys_welcome").setLabel("Hoş Geldin").setStyle(ButtonStyle.Primary).setEmoji("👋"), // YENİ BUTON
+                    new ButtonBuilder().setCustomId("sys_modrol").setLabel("Mod Rolü").setStyle(ButtonStyle.Success).setEmoji("👮‍♂️"),
                     new ButtonBuilder().setCustomId("btn_geri").setLabel("Geri").setStyle(ButtonStyle.Danger)
                 );
                 interaction.update({embeds:[embed], components:[row]});
@@ -111,13 +119,12 @@ module.exports = {
                 const menu = new StringSelectMenuBuilder().setCustomId("panel_ana_menu").setPlaceholder("Menü Seç...").addOptions({ label: 'Koruma', value: 'menu_koruma', emoji: '🛡️' }, { label: 'Sistemler', value: 'menu_sistem', emoji: '⚙️' }, { label: 'Moderasyon', value: 'menu_mod', emoji: '🔨' });
                 interaction.update({embeds:[embed], components:[new ActionRowBuilder().addComponents(menu)]});
             }
-            
             // Toggle
             if (["btn_kufur","btn_reklam","btn_link"].includes(interaction.customId)) {
                 const key = interaction.customId.replace("btn_","")+"Engel";
                 const val = db.fetch(`${key}_${interaction.guild.id}`);
                 if(val) db.delete(`${key}_${interaction.guild.id}`); else db.set(`${key}_${interaction.guild.id}`, true);
-                logGonder(interaction.guild, "🛡️ Koruma Güncellendi", "Orange", `**İşlem:** ${key}\n**Yapan:** ${interaction.user}`);
+                logGonder(interaction.guild, "🛡️ Koruma", "Orange", `İşlem: ${key}\nYapan: ${interaction.user}`);
                 const newRow = ActionRowBuilder.from(interaction.message.components[0]);
                 const idx = newRow.components.findIndex(b=>b.data.custom_id===interaction.customId);
                 newRow.components[idx].setStyle(!val?ButtonStyle.Success:ButtonStyle.Secondary);
@@ -125,12 +132,13 @@ module.exports = {
             }
 
             // Kanal & Rol Seçiciler
-            if (interaction.customId === "sys_log") interaction.reply({content:"Log kanalı seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_log_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
-            if (interaction.customId === "sys_global") interaction.reply({content:"Global Chat seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_global_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
-            if (interaction.customId === "sys_modrol") interaction.reply({content:"Botu kullanabilecek Mod rolünü seç:", components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId("set_mod_role"))], ephemeral:true});
+            if (interaction.customId === "sys_log") interaction.reply({content:"📜 Log kanalı seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_log_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
+            if (interaction.customId === "sys_global") interaction.reply({content:"🌐 Global Chat seç:", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_global_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true});
+            if (interaction.customId === "sys_welcome") interaction.reply({content:"👋 Hoş geldin mesajları nereye gitsin?", components:[new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId("set_welcome_channel").setChannelTypes(ChannelType.GuildText))], ephemeral:true}); // YENİ SEÇİCİ
+            if (interaction.customId === "sys_modrol") interaction.reply({content:"👮‍♂️ Moderatör rolünü seç:", components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId("set_mod_role"))], ephemeral:true});
 
             // Mod
-            if (interaction.customId === "mod_sil") { await interaction.channel.bulkDelete(20, true); interaction.reply({content:"Silindi.", ephemeral:true}); logGonder(interaction.guild, "🧹 Temizlendi", "Blue", `${interaction.user} 20 mesaj sildi.`); }
+            if (interaction.customId === "mod_sil") { await interaction.channel.bulkDelete(20, true); interaction.reply({content:"Silindi.", ephemeral:true}); }
             if (interaction.customId === "mod_kilit") { await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false }); interaction.reply({content:"Kilitlendi.", ephemeral:true}); }
             if (interaction.customId === "mod_ac") { await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true }); interaction.reply({content:"Açıldı.", ephemeral:true}); }
             
@@ -146,11 +154,12 @@ module.exports = {
         
         // Kanal & Rol Kayıt
         if (interaction.isChannelSelectMenu()) {
-            if (interaction.customId === "set_log_channel") { db.set(`logKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"Log Ayarlandı.", components:[]}); }
-            if (interaction.customId === "set_global_channel") { db.set(`globalKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"Global Ayarlandı.", components:[]}); }
+            if (interaction.customId === "set_log_channel") { db.set(`logKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Log Kaydedildi.", components:[]}); }
+            if (interaction.customId === "set_global_channel") { db.set(`globalKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Global Kaydedildi.", components:[]}); }
+            if (interaction.customId === "set_welcome_channel") { db.set(`hosgeldinKanal_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:"✅ Hoş Geldin Kanalı Ayarlandı!", components:[]}); } // YENİ KAYIT
         }
         if (interaction.isRoleSelectMenu()) {
-             if (interaction.customId === "set_mod_role") { db.set(`modRol_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:`✅ Moderatör rolü <@&${interaction.values[0]}> olarak ayarlandı! Artık bu role sahip olanlar ban/kick atabilir.`, components:[]}); }
+             if (interaction.customId === "set_mod_role") { db.set(`modRol_${interaction.guild.id}`, interaction.values[0]); interaction.update({content:`✅ Mod Rolü Ayarlandı!`, components:[]}); }
         }
     }
 };
