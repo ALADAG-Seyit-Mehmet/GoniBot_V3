@@ -1,36 +1,35 @@
-const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ticket-kur')
-        .setDescription('Gelişmiş destek panelini kurar.'),
+        .setDescription('Butonlu destek panelini kurar.'),
     async execute(interaction) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) 
             return interaction.reply({ content: '❌ Bunu sadece yöneticiler kurabilir.', ephemeral: true });
 
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Müşteri Hizmetleri & Destek')
-            .setDescription(`Merhaba! Bir sorun mu yaşıyorsun?\nAşağıdaki menüden ilgili departmanı seçerek bize ulaşabilirsin.\n\n⏱️ **Ortalama Yanıt Süresi:** 5 Dakika\n🛡️ **Güvenlik:** Tüm görüşmeler kayıt altına alınır.`)
-            .addFields(
-                { name: '🟢 Canlı Destek', value: 'Genel sorular ve yardım.', inline: true },
-                { name: '🔴 Şikayet', value: 'Kural ihlali bildirimi.', inline: true },
-                { name: '🟡 Başvuru', value: 'Yetkili alım görüşmeleri.', inline: true }
-            )
+            .setTitle('🎫 GoniBot Destek Merkezi')
+            .setDescription(`
+                Merhaba! Yardıma mı ihtiyacın var?
+                İşlemini hızlandırmak için lütfen aşağıdaki **ilgili butona** tıkla.
+                
+                🟢 **Canlı Destek:** Genel sorular ve yardım.
+                🔴 **Şikayet:** Kural ihlali ve raporlama.
+                🟡 **Başvuru:** Yetkili alım görüşmeleri.
+            `)
             .setColor('Blurple')
             .setImage('https://media.discordapp.net/attachments/1033464536838328391/1085609424757112922/ticket_banner.png')
-            .setFooter({ text: 'GoniBot Destek Sistemi', iconURL: interaction.guild.iconURL() });
+            .setFooter({ text: 'Gereksiz ticket açmak yasaktır.', iconURL: interaction.guild.iconURL() });
 
-        const menu = new StringSelectMenuBuilder()
-            .setCustomId('ticket_secim')
-            .setPlaceholder('Buraya tıkla ve bir konu seç...')
-            .addOptions(
-                { label: 'Genel Destek', description: 'Yardım almak istiyorum.', value: 'ticket_destek', emoji: '🟢' },
-                { label: 'Şikayet / Bildiri', description: 'Bir kullanıcıyı raporlamak istiyorum.', value: 'ticket_sikayet', emoji: '🔴' },
-                { label: 'Yetkili Başvurusu', description: 'Ekibe katılmak istiyorum.', value: 'ticket_basvuru', emoji: '🟡' }
-            );
+        // BUTONLAR (Dropdown yerine bunlar geldi)
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_destek').setLabel('Canlı Destek').setStyle(ButtonStyle.Success).setEmoji('🟢'),
+            new ButtonBuilder().setCustomId('ticket_sikayet').setLabel('Şikayet/Bildiri').setStyle(ButtonStyle.Danger).setEmoji('🔴'),
+            new ButtonBuilder().setCustomId('ticket_basvuru').setLabel('Yetkili Başvurusu').setStyle(ButtonStyle.Primary).setEmoji('🟡')
+        );
 
-        const row = new ActionRowBuilder().addComponents(menu);
         await interaction.channel.send({ embeds: [embed], components: [row] });
-        await interaction.reply({ content: '✅ Gelişmiş ticket paneli kuruldu!', ephemeral: true });
+        await interaction.reply({ content: '✅ Butonlu ticket paneli kuruldu!', ephemeral: true });
     }
 };
