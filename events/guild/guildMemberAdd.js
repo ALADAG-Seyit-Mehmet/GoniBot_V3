@@ -1,6 +1,7 @@
 const { AttachmentBuilder } = require('discord.js');
 const { Welcomer } = require('canvacord');
 const db = require('croxydb');
+const path = require('path');
 
 module.exports = {
     name: 'guildMemberAdd',
@@ -12,28 +13,30 @@ module.exports = {
             const channel = await member.guild.channels.fetch(welcomeChannelID);
             if (!channel) return;
 
+            // Yerel resim yolunu belirle
+            const bgPath = path.join(__dirname, '../../background.png');
+
             const card = new Welcomer()
                 .setUsername(member.user.username)
-                .setDiscriminator(member.user.discriminator === '0' ? ' ' : member.user.discriminator)
+                .setDiscriminator(false)
                 .setMemberCount(member.guild.memberCount)
                 .setGuildName(member.guild.name)
                 .setAvatar(member.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
                 
-                // RENKLER (Turuncu/Koyu Tema)
+                // ŞEFFAF AYARLAR
                 .setColor("title", "#FF5500")
-                .setColor("username-box", "#00000000") // Şeffaf Kutu
+                .setColor("username-box", "#00000000")
                 .setColor("discriminator-box", "#00000000")
                 .setColor("message-box", "#00000000")
                 .setColor("border", "#FF5500")
                 .setColor("avatar", "#FF5500")
                 
                 .setText("title", "HOŞGELDİN") 
-                .setText("message", "SUNUCUYA KATILDI") 
-                .setText("member-count", "- Toplam Üye: {count} -")
+                .setText("message", "AVELLERE KATILDI") 
+                .setText("member-count", "- Üye Sayısı: {count} -")
                 
-                // 🔥 KRİTİK DEĞİŞİKLİK: Link yerine Renk Kodu 🔥
-                // Bu koyu gri bir renktir. Bot bunu kendi boyar, internet gerekmez.
-                .setBackground("#2C2F33"); 
+                // 🔥 KRİTİK: Yerel Dosya Yolu 🔥
+                .setBackground(bgPath);
 
             const buffer = await card.build();
             const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
