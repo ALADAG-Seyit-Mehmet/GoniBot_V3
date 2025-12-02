@@ -1,18 +1,16 @@
-const { AttachmentBuilder, PermissionsBitField } = require('discord.js');
+const { AttachmentBuilder } = require('discord.js');
 const { Welcomer } = require('canvacord');
 const db = require('croxydb');
 
 module.exports = {
     name: 'guildMemberAdd',
     async execute(member) {
-        console.log(`[OLAY] 🟢 Biri girdi: ${member.user.tag}`); // Bu satır konsolda çıkmıyorsa sorun Developer Portal'dadır.
-
         const welcomeChannelID = db.fetch(`hosgeldinKanal_${member.guild.id}`);
-        if (!welcomeChannelID) return console.log("[HATA] DB'de kanal yok.");
+        if (!welcomeChannelID) return;
         
         try {
             const channel = await member.guild.channels.fetch(welcomeChannelID);
-            if (!channel) return console.log("[HATA] Kanal yok.");
+            if (!channel) return;
 
             const card = new Welcomer()
                 .setUsername(member.user.username)
@@ -28,16 +26,16 @@ module.exports = {
                 .setColor("avatar", "#ff5500")
                 .setText("title", "HOŞ GELDİN")
                 .setText("message", "Sunucumuza!")
-                .setBackground("https://wallpapers.com/images/featured/dark-orange-background-309k975769784k30.jpg");
+                // SENİN VERDİĞİN LİNK
+                .setBackground("https://media.tenor.com/6yWED-oo_sUAAAAd/welcome-anime.gif");
 
             const buffer = await card.build();
             const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
             
             await channel.send({ content: `${member} aramıza katıldı!`, files: [attachment] });
-            console.log("[BAŞARILI] Resim atıldı.");
 
         } catch (err) {
-            console.log("[HATA]", err);
+            console.log("[HATA] Resim oluşturulamadı:", err);
         }
     }
 };
