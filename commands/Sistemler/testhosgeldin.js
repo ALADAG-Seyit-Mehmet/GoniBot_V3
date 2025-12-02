@@ -14,28 +14,26 @@ module.exports = {
         await interaction.reply("🔄 Yerel dosya ile oluşturuluyor...");
 
         try {
-            // Yerel resim yolunu belirle (commands/Sistemler/../../background.png)
-            const bgPath = path.join(__dirname, '../../background.png');
+            const bgPath = path.join(__dirname, '../../clean_bg.png');
 
             const card = new Welcomer()
                 .setUsername(interaction.user.username)
-                .setDiscriminator(false) 
+                .setDiscriminator(' ') 
                 .setMemberCount(interaction.guild.memberCount)
                 .setGuildName(interaction.guild.name)
                 .setAvatar(interaction.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
                 
-                .setColor("title", "#FF5500") 
-                .setColor("username-box", "#00000000") 
-                .setColor("discriminator-box", "#00000000")
-                .setColor("message-box", "#00000000")
-                .setColor("border", "#FF5500") 
-                .setColor("avatar", "#FF5500")
+                .setColor("title", "#3498db") 
+                .setColor("username-box", "transparent") 
+                .setColor("discriminator-box", "transparent")
+                .setColor("message-box", "transparent")
+                .setColor("border", "#3498db") 
+                .setColor("avatar", "#3498db")
                 
                 .setText("title", "HOŞGELDİN")
-                .setText("message", "AVELLERE KATILDI")
-                .setText("member-count", "- Üye Sayısı: {count} -")
+                .setText("message", "SUNUCUYA KATILDI")
+                .setText("member-count", "- Toplam Üye: {count} -")
                 
-                // Yerel Dosya
                 .setBackground(bgPath);
 
             const buffer = await card.build();

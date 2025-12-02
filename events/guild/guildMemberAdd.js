@@ -13,29 +13,29 @@ module.exports = {
             const channel = await member.guild.channels.fetch(welcomeChannelID);
             if (!channel) return;
 
-            // Yerel resim yolunu belirle
-            const bgPath = path.join(__dirname, '../../background.png');
+            // İndirdiğimiz temiz arka planın yolu
+            const bgPath = path.join(__dirname, '../../clean_bg.png');
 
             const card = new Welcomer()
                 .setUsername(member.user.username)
-                .setDiscriminator(false)
+                .setDiscriminator(' ') // Etiketi kapat
                 .setMemberCount(member.guild.memberCount)
                 .setGuildName(member.guild.name)
                 .setAvatar(member.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
                 
-                // ŞEFFAF AYARLAR
-                .setColor("title", "#FF5500")
-                .setColor("username-box", "#00000000")
-                .setColor("discriminator-box", "#00000000")
-                .setColor("message-box", "#00000000")
-                .setColor("border", "#FF5500")
-                .setColor("avatar", "#FF5500")
+                // Şeffaf ve Modern Renkler
+                .setColor("title", "#3498db")        // Mavi Başlık
+                .setColor("username-box", "transparent")
+                .setColor("discriminator-box", "transparent")
+                .setColor("message-box", "transparent")
+                .setColor("border", "#3498db")       // Mavi Kenarlık
+                .setColor("avatar", "#3498db")
                 
                 .setText("title", "HOŞGELDİN") 
-                .setText("message", "AVELLERE KATILDI") 
-                .setText("member-count", "- Üye Sayısı: {count} -")
+                .setText("message", "SUNUCUYA KATILDI") 
+                .setText("member-count", "- Toplam Üye: {count} -")
                 
-                // 🔥 KRİTİK: Yerel Dosya Yolu 🔥
+                // YEREL DOSYAYI KULLAN
                 .setBackground(bgPath);
 
             const buffer = await card.build();
