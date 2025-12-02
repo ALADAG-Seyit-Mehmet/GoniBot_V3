@@ -10,7 +10,7 @@ module.exports = {
     async execute(interaction) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) return interaction.reply("Yetkin yok.");
         
-        await interaction.reply("🔄 Resim oluşturuluyor (Tenor)...");
+        await interaction.reply("🔄 Pro-Bot tasarımı oluşturuluyor...");
 
         try {
             const card = new Welcomer()
@@ -19,21 +19,27 @@ module.exports = {
                 .setMemberCount(interaction.guild.memberCount)
                 .setGuildName(interaction.guild.name)
                 .setAvatar(interaction.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
-                .setColor("title", "#ffffff")
+                
+                // --- RENKLER ---
+                .setColor("title", "#FF5500") // Turuncu Başlık
                 .setColor("username-box", "transparent")
                 .setColor("discriminator-box", "transparent")
                 .setColor("message-box", "transparent")
-                .setColor("border", "#ff5500")
-                .setColor("avatar", "#ff5500")
-                .setText("title", "TEST BAŞARILI")
-                .setText("message", "Görsel Çalışıyor!")
-                // SENİN VERDİĞİN LİNK
-                .setBackground("https://media.tenor.com/6yWED-oo_sUAAAAd/welcome-anime.gif");
+                .setColor("border", "#FF5500") // Turuncu Kenar
+                .setColor("avatar", "#FF5500")
+                
+                // --- METİNLER ---
+                .setText("title", "HOŞGELDİN")
+                .setText("message", "AVELLERE KATILDI")
+                .setText("member-count", "- Toplam Üye: {count} -")
+                
+                // --- ARKA PLAN (Koyu Turuncu) ---
+                .setBackground("https://wallpapers.com/images/hd/black-and-orange-background-1920-x-1080-4i32732950669273.jpg");
 
             const buffer = await card.build();
             const attachment = new AttachmentBuilder(buffer, { name: 'test.png' });
 
-            await interaction.editReply({ content: "✅ İşte sonuç:", files: [attachment] });
+            await interaction.editReply({ content: "✅ İşte yeni tasarım:", files: [attachment] });
 
         } catch (error) {
             console.log(error);
