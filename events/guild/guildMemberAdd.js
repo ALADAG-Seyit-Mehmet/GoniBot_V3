@@ -12,7 +12,6 @@ module.exports = {
             const channel = await member.guild.channels.fetch(welcomeChannelID);
             if (!channel) return;
 
-            // v5 Uyumlu Güvenli Ayarlar
             const card = new Welcomer()
                 .setUsername(member.user.username)
                 .setDiscriminator(member.user.discriminator === '0' ? ' ' : member.user.discriminator)
@@ -20,19 +19,21 @@ module.exports = {
                 .setGuildName(member.guild.name)
                 .setAvatar(member.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
                 
-                // STANDART RENKLER (Çökmemesi için)
-                .setColor("title", "#FF5500") 
-                .setColor("username-box", "#000000") // Siyah Kutu (Şimdilik)
-                .setColor("discriminator-box", "#000000")
-                .setColor("message-box", "#000000")
+                // RENKLER (Turuncu/Koyu Tema)
+                .setColor("title", "#FF5500")
+                .setColor("username-box", "#00000000") // Şeffaf Kutu
+                .setColor("discriminator-box", "#00000000")
+                .setColor("message-box", "#00000000")
                 .setColor("border", "#FF5500")
                 .setColor("avatar", "#FF5500")
                 
-                .setText("title", "HOŞGELDİN")
-                .setText("message", "SUNUCUYA KATILDI")
-                .setText("member-count", "- Üye Sayısı: {count} -")
+                .setText("title", "HOŞGELDİN") 
+                .setText("message", "SUNUCUYA KATILDI") 
+                .setText("member-count", "- Toplam Üye: {count} -")
                 
-                .setBackground("https://wallpapers.com/images/hd/black-and-orange-background-1920-x-1080-4i32732950669273.jpg");
+                // 🔥 KRİTİK DEĞİŞİKLİK: Link yerine Renk Kodu 🔥
+                // Bu koyu gri bir renktir. Bot bunu kendi boyar, internet gerekmez.
+                .setBackground("#2C2F33"); 
 
             const buffer = await card.build();
             const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
@@ -40,7 +41,7 @@ module.exports = {
             await channel.send({ content: `${member} aramıza katıldı!`, files: [attachment] });
 
         } catch (err) {
-            console.log("[HATA] Resim hatası:", err);
+            console.log("[HATA] Resim oluşturulamadı:", err);
         }
     }
 };
