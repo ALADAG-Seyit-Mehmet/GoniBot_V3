@@ -1,15 +1,18 @@
 {
-  "name": "gonibot-v3-final",
+  "name": "gonibot-v3",
   "version": "3.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "canvacord": "^6.0.4",
+    "canvacord": "5.4.10",
     "croxydb": "^0.0.7",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "hercai": "^14.0.3"
+    "hercai": "^1.0.9"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
