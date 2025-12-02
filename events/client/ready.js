@@ -5,36 +5,40 @@ module.exports = {
     name: 'ready',
     once: true,
     execute(client) {
-        console.log(`🚀 ${client.user.tag} Hazır ve Nazır!`);
+        console.log(`🚀 ${client.user.tag} Borsa Sistemini Başlattı!`);
+        client.user.setActivity("Borsayı", { type: ActivityType.Watching });
 
-        // --- DİNAMİK DURUM AYARI ---
-        const states = [
-            { name: "Goni'nin Krallığı", type: ActivityType.Competing },
-            { name: "/yardım | Komutlar", type: ActivityType.Listening },
-            { name: "Borsayı Takip Ediyor 📈", type: ActivityType.Watching },
-            { name: `${client.guilds.cache.size} Sunucu | ${client.guilds.cache.reduce((a,b)=>a+b.memberCount,0)} Üye`, type: ActivityType.Watching }
-        ];
+        // --- PİYASA BAŞLANGIÇ FİYATLARI (Eğer yoksa) ---
+        if(!db.fetch('market_BTC')) db.set('market_BTC', 50000); // Bitcoin
+        if(!db.fetch('market_USD')) db.set('market_USD', 30);    // Dolar
+        if(!db.fetch('market_GLD')) db.set('market_GLD', 2000);  // Altın
+        if(!db.fetch('market_GNI')) db.set('market_GNI', 100);   // Goni Hisse
 
-        let i = 0;
+        // --- PİYASA DALGALANMA MOTORU (Her 1 Dakikada Bir) ---
         setInterval(() => {
-            client.user.setActivity(states[i].name, { type: states[i].type });
-            i = (i + 1) % states.length;
-        }, 10000); // 10 Saniyede bir değişir
+            const assets = ['BTC', 'USD', 'GLD', 'GNI'];
+            
+            assets.forEach(asset => {
+                let price = db.fetch(`market_${asset}`);
+                
+                // %5 ile -%5 arası rastgele değişim
+                const degisimOrani = (Math.random() * 0.1) - 0.05; 
+                let yeniFiyat = Math.floor(price * (1 + degisimOrani));
+                
+                // Fiyat asla 1'in altına düşmesin
+                if (yeniFiyat < 1) yeniFiyat = 1;
 
-        // --- ZAMANLAYICILAR (Boss & Kapsül) ---
-        setInterval(() => {
-            const liste = db.fetch('kapsul_listesi') || [];
-            liste.forEach(id => {
-                const kapsul = db.fetch(`kapsul_${id}`);
-                if (!kapsul) return;
-                if (Date.now() >= kapsul.date) {
-                    const ch = client.channels.cache.get(kapsul.channel);
-                    if (ch) ch.send(`⌛ **Zaman Kapsülü:** <@${kapsul.user}> demiş ki: "${kapsul.msg}"`);
-                    db.delete(`kapsul_${id}`);
-                }
+                db.set(`market_${asset}`, yeniFiyat);
+                
+                // Değişim yönünü kaydet (Grafik için)
+                const yon = yeniFiyat > price ? "up" : "down";
+                db.set(`trend_${asset}`, yon);
             });
-        }, 60000);
+            
+            // console.log("Borsa güncellendi."); // Log kirliliği olmasın diye kapalı
+        }, 60000); // 1 Dakika
 
+        // --- ESKİ ZAMANLAYICILAR (Boss vb.) ---
         setInterval(() => {
             if (Math.random() > 0.8) {
                  client.guilds.cache.forEach(g => {
@@ -42,7 +46,6 @@ module.exports = {
                      const ch = g.channels.cache.get(chID);
                      if(ch) {
                          const btn = { type: 1, components: [{ type: 2, label: "SALDIR", style: 4, custom_id: "boss_vur" }] };
-                         // Basit buton yapısı (require karmaşası olmasın diye)
                          ch.send({ content: "👹 **DÜNYA BOSSU BELİRDİ!**", components: [btn] }).then(m => db.set(`boss_${m.id}`, 5000));
                      }
                  });
