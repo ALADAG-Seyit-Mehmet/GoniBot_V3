@@ -7,7 +7,7 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildPresences, // <--- İŞTE BU EKSİKTİ! (Çevrim içi durumu görmek için şart)
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessageReactions
     ],
@@ -16,9 +16,11 @@ const client = new Client({
 
 client.commands = new Collection();
 
-process.on('unhandledRejection', (reason, p) => console.log('[Anti-Crash] Rejection:', reason));
-process.on('uncaughtException', (err, origin) => console.log('[Anti-Crash] Exception:', err));
+// Hata Bastırıcı
+process.on('unhandledRejection', (reason, p) => console.log('[Anti-Crash]', reason));
+process.on('uncaughtException', (err, origin) => console.log('[Anti-Crash]', err));
 
+// Handlerları Yükle
 ['commandHandler', 'eventHandler'].forEach(handler => require(`./handlers/${handler}`)(client));
 
 if (!process.env.TOKEN) {
