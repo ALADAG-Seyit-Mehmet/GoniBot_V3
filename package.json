@@ -10,7 +10,7 @@
     "croxydb": "^0.0.7",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "hercai": "^1.0.9"
+    "hercai": "latest"
   },
   "engines": {
     "node": "18.x"
