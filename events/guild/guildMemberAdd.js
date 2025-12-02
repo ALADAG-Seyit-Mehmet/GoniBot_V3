@@ -1,54 +1,43 @@
-const { AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder, PermissionsBitField } = require('discord.js');
 const { Welcomer } = require('canvacord');
 const db = require('croxydb');
 
 module.exports = {
     name: 'guildMemberAdd',
     async execute(member) {
-        // 1. Kanal Ayarlı mı?
+        console.log(`[OLAY] 🟢 Biri girdi: ${member.user.tag}`); // Bu satır konsolda çıkmıyorsa sorun Developer Portal'dadır.
+
         const welcomeChannelID = db.fetch(`hosgeldinKanal_${member.guild.id}`);
-        if (!welcomeChannelID) return;
+        if (!welcomeChannelID) return console.log("[HATA] DB'de kanal yok.");
         
-        const channel = member.guild.channels.cache.get(welcomeChannelID);
-        if (!channel) return;
+        try {
+            const channel = await member.guild.channels.fetch(welcomeChannelID);
+            if (!channel) return console.log("[HATA] Kanal yok.");
 
-        // 2. Görsel Tasarım (ProBot Tarzı)
-        // Arka planı koyu ve turuncu şeritli bir görsel yapıyoruz
-        const card = new Welcomer()
-            .setUsername(member.user.username)
-            .setDiscriminator(member.user.discriminator === '0' ? ' ' : member.user.discriminator)
-            .setMemberCount(member.guild.memberCount)
-            .setGuildName(member.guild.name)
-            .setAvatar(member.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
-            
-            // RENK AYARLARI (Karanlık Tema)
-            .setColor("title", "#ffffff")       // Başlık Rengi (Beyaz)
-            .setColor("username-box", "transparent") // Kutu arkası şeffaf olsun (Daha modern)
-            .setColor("discriminator-box", "transparent")
-            .setColor("message-box", "transparent")
-            .setColor("border", "#ff5500")      // Avatar kenarlığı (Turuncu)
-            .setColor("avatar", "#ff5500")      // Avatar arkası
-            
-            // METİN AYARLARI
-            .setText("title", "HOŞ GELDİN")
-            .setText("message", `${member.guild.name} Suncusuna!`)
-            
-            // ARKA PLAN (Karanlık Soyut)
-            // Buraya senin attığın resme benzeyen koyu/turuncu bir wallpaper koydum.
-            .setBackground("https://wallpapers.com/images/featured/dark-orange-background-309k975769784k30.jpg");
+            const card = new Welcomer()
+                .setUsername(member.user.username)
+                .setDiscriminator(member.user.discriminator === '0' ? ' ' : member.user.discriminator)
+                .setMemberCount(member.guild.memberCount)
+                .setGuildName(member.guild.name)
+                .setAvatar(member.user.displayAvatarURL({ extension: 'png', forceStatic: true }))
+                .setColor("title", "#ffffff")
+                .setColor("username-box", "transparent")
+                .setColor("discriminator-box", "transparent")
+                .setColor("message-box", "transparent")
+                .setColor("border", "#ff5500")
+                .setColor("avatar", "#ff5500")
+                .setText("title", "HOŞ GELDİN")
+                .setText("message", "Sunucumuza!")
+                .setBackground("https://wallpapers.com/images/featured/dark-orange-background-309k975769784k30.jpg");
 
-        // 3. Mesajı ve Resmi Gönder
-        card.build().then(buffer => {
+            const buffer = await card.build();
             const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
             
-            // Senin istediğin yazı formatı:
-            const mesajMetni = `${member} **${member.guild.name}** sunucusuna katıldı! Toplam üye sayısı **${member.guild.memberCount}** oldu. 🚀`;
+            await channel.send({ content: `${member} aramıza katıldı!`, files: [attachment] });
+            console.log("[BAŞARILI] Resim atıldı.");
 
-            channel.send({ content: mesajMetni, files: [attachment] });
-        });
-
-        // 4. Otorol Varsa Ver (Ekstra)
-        // const otorolID = db.fetch(`otorol_${member.guild.id}`);
-        // if(otorolID) member.roles.add(otorolID).catch(()=>{});
+        } catch (err) {
+            console.log("[HATA]", err);
+        }
     }
 };
